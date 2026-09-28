@@ -4,14 +4,16 @@ import { getResumeableUploadURL } from "./video.service"
 export const handleVideoStorage = async (req: Request, res: Response) => {
     try {
         const fileMetadata = req.body;
-        console.log("metadata: ", fileMetadata);
+        if (!fileMetadata) {
+            return res.status(400).json({ eror: true, message: "fields are empty" })
+        }
 
         const uploadURL = await getResumeableUploadURL(fileMetadata);
         if (!uploadURL) {
-            res.json({message: 'URL is Empty'});
+            res.status(404).json({ error: true,  message: 'URL is Empty' });
             return;
         }
-        res.status(200).json({success: true, url: uploadURL});
+        res.status(200).json({ success: true, url: uploadURL });
     } catch (error) {
         console.log('video input Error:', error);
     }
