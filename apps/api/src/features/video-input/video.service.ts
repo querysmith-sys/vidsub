@@ -11,11 +11,9 @@ const STATIC_REDIRECT_URI = process.env.STATIC_REDIRECT_URI;
 const YOUR_REFRESH_TOKEN = process.env.YOUR_REFRESH_TOKEN;
 
 console.log(folderID)
-const keyPath = path.resolve(import.meta.dirname, '../../../secrets/project-68276a57-fc72-492d-a15-31d0fa8e3d89.json');
-console.log(keyPath)
 
 // 1. Initialize the OAuth2 Client
-const oauth2Client = new google.auth.OAuth2(
+export const oauth2Client = new google.auth.OAuth2(
     YOUR_CLIENT_ID,
     YOUR_CLIENT_SECRET,
     STATIC_REDIRECT_URI
