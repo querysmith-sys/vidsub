@@ -10,7 +10,7 @@ const YOUR_CLIENT_SECRET = process.env.YOUR_CLIENT_SECRET;
 const STATIC_REDIRECT_URI = process.env.STATIC_REDIRECT_URI;
 const YOUR_REFRESH_TOKEN = process.env.YOUR_REFRESH_TOKEN;
 
-console.log(folderID)
+// console.log(folderID)
 
 // 1. Initialize the OAuth2 Client
 export const oauth2Client = new google.auth.OAuth2(

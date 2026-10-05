@@ -2,6 +2,11 @@ import axios from "axios"
 import { oauth2Client } from "../video-input/video.service"
 import ffmpeg from "fluent-ffmpeg"
 import { AssemblyAI } from "assemblyai"
+import path from "node:path"
+import { access, stat } from "node:fs/promises";
+// ffmpeg.setFfmpegPath(ffmpegPath)
+// ffmpeg.setFfprobePath(ffprobePath)
+
 
 export const getFileStream = async (fileId: string) => {
     try {
@@ -18,36 +23,49 @@ export const getFileStream = async (fileId: string) => {
     }
 }
 
-export const getAudioFromVideo = () => {
-
-    return new Promise((resolve, reject) => {
-        ffmpeg.ffprobe('D:/videsub-video/tmp_video.mp4', (err, metadata) => {
+export const getAudioFromVideo = (videoPath: string) => {
+    const outputPath = path.join(path.dirname(videoPath), 'audio.mp3');
+    console.log("FFmpeg output path:", outputPath);
+    return new Promise<string>((resolve, reject) => {
+        ffmpeg.ffprobe(videoPath, (err, metadata) => {
             if (err) {
-                console.error('Error probing file:', err);
+                reject(new Error(`Unable to inspect video file "${videoPath}": ${err.message}`));
                 return;
             }
 
-            // Find the audio stream
             const audioStream = metadata.streams.find(s => s.codec_type === 'audio');
-            const codec = audioStream ? audioStream.codec_name : '';
+            if (!audioStream) {
+                reject(new Error(`Video file "${videoPath}" does not contain an audio stream`));
+                return;
+            }
 
-            let extension = '.m4a'; // Default
-            if (codec === 'mp3') extension = '.mp3';
-            if (codec === 'vorbis' || codec === 'opus') extension = '.ogg';
-
-            const outputPath = `D:/videsub-video/output_audio${extension}`;
-            // Now run the extraction with the correct extension
-            ffmpeg('D:/videsub-video/tmp_video.mp4')
+            ffmpeg(videoPath)
                 .noVideo()
-                .audioCodec('copy')
+                .audioCodec('libmp3lame')
+                .format('mp3')
                 .save(outputPath)
-                .on('end', () => {
-                    console.log("done");
-                    resolve(outputPath)
+                .on("end", async () => {
+                    try {
+                        await access(outputPath);
+
+                        const stats = await stat(outputPath);
+
+                        console.log("FFmpeg finished.");
+                        console.log("Audio exists:", outputPath);
+                        console.log("Audio size:", stats.size, "bytes");
+
+                        resolve(outputPath);
+                    } catch (error) {
+                        reject(
+                            new Error(
+                                `FFmpeg finished but audio file was not found: ${outputPath}`
+                            )
+                        );
+                    }
                 })
-                .on('error', (error: any) => reject(error));
+                .on('error', reject);
         });
-    })
+    });
 
 }
 
@@ -58,10 +76,43 @@ export const getTranslatedTranscription = async (path: string) => {
     //  use assembly api send the audio get english transcription
     // then use ffmpeg to add soft sub to video  and return a downloadable video
     try {
-        const result = await client.sync.transcribe(path);
-        return result;
+        // const transcript = await client.transcripts.transcribe({
+        //     audio: path,
+        //     speech_understanding: {
+        //         request: {
+        //             translation: {
+        //                 target_languages: ['en'],
+        //                 formal: true
+        //             }
+        //         }
+        //     }
+        // });
+        const transcript = await client.transcripts.transcribe({
+            audio: path,
+            speaker_labels: true, // Required for match_original_utterance
+            speech_understanding: {
+                request: {
+                    translation: {
+                        target_languages: ['en'],
+                        formal: true,
+                        match_original_utterance: true, // Adds translated_texts per utterance
+                    },
+                },
+            },
+        });
+
+        // Each utterance now has its own translated text + existing start/end timestamps
+        transcript.utterances?.forEach((utt) => {
+            console.log(utt.start, utt.end, utt?.translated_texts?.en);
+        });
+        console.log(transcript);
+        return transcript;
     }
     catch (error) {
         throw new Error(`Error in getTranslatedTranscription: ${error}`);
     }
+}
+
+const translateTranscription = () => {
+
 }
