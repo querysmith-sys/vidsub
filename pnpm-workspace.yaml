@@ -2,8 +2,10 @@ packages:
   - "apps/*"
   - "packages/*"
 allowBuilds:
+  '@google/genai': true
   esbuild: false
   ffmpeg-static: true
+  protobufjs: true
 minimumReleaseAgeExclude:
   - '@turbo/darwin-64@2.11.3'
   - '@turbo/darwin-arm64@2.11.3'

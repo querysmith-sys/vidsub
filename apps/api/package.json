@@ -11,6 +11,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@google/genai": "^2.27.0",
     "@types/multer": "^2.2.0",
     "assemblyai": "^4.41.5",
     "axios": "^1.20.0",
