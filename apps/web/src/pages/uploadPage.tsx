@@ -10,12 +10,6 @@ interface ApiErrorResponse {
   error?: string
 }
 
-interface UploadUrlResponse {
-  success: boolean
-  url?: string
-  message?: string
-}
-
 interface JobStartResponse {
   success: boolean
   data?: {
@@ -40,13 +34,10 @@ interface JobStatusResponse {
 const MAX_VIDEO_DURATION_SECONDS = 30 * 60
 const POLL_INTERVAL_MS = 2500
 const API_ORIGIN = (import.meta.env.VITE_API_ORIGIN ?? 'http://localhost:3000').replace(/\/$/u, '')
-const SUPPORTED_EXTENSIONS = ['.mp4', '.mov', '.m4v', '.mkv', '.webm']
+const SUPPORTED_EXTENSIONS = ['.mp4', '.mkv']
 const VIDEO_MIME_TYPES: Record<string, string> = {
   '.mp4': 'video/mp4',
-  '.m4v': 'video/mp4',
-  '.mov': 'video/quicktime',
   '.mkv': 'video/x-matroska',
-  '.webm': 'video/webm',
 }
 
 function apiUrl(path: string) {
@@ -166,7 +157,7 @@ function UploadPage() {
     if (!file) return
     const extension = getFileExtension(file.name)
     if (!SUPPORTED_EXTENSIONS.includes(extension)) {
-      setErrorMessage('Choose an MP4, MOV, M4V, MKV, or WebM video.')
+      setErrorMessage('Only MP4 and MKV video files are supported.')
       return
     }
     if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -219,23 +210,14 @@ function UploadPage() {
     setElapsedMs(0)
 
     try {
-      const uploadInfo = await fetchJson<UploadUrlResponse>('/api/upload/video', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mimeType: getVideoMimeType(selectedFile),
-          fileSize: String(selectedFile.size),
-          fileName: selectedFile.name,
-        }),
-      })
-      const uploadUrl = uploadInfo.url
-      if (!uploadUrl) throw new Error(uploadInfo.message ?? 'The server did not provide an upload URL.')
-
       setUploadLabel('Uploading video to secure storage')
       const fileId = await new Promise<string>((resolve, reject) => {
         const request = new XMLHttpRequest()
-        request.open('PUT', uploadUrl)
-        request.setRequestHeader('Content-Type', getVideoMimeType(selectedFile))
+        request.open('POST', apiUrl(`/api/upload/video?fileName=${encodeURIComponent(selectedFile.name)}`))
+        request.setRequestHeader(
+          'Content-Type',
+          VIDEO_MIME_TYPES[getFileExtension(selectedFile.name)] ?? getVideoMimeType(selectedFile),
+        )
         request.upload.onprogress = (progressEvent) => {
           if (!progressEvent.lengthComputable) return
           setUploadProgress(Math.round((progressEvent.loaded / progressEvent.total) * 100))
@@ -244,18 +226,33 @@ function UploadPage() {
         request.onabort = () => reject(new Error('Upload was interrupted. Please try again.'))
         request.onload = () => {
           if (request.status < 200 || request.status >= 300) {
-            reject(new Error(`Video upload failed (${request.status}).`))
+            let message = `Video upload failed (${request.status}).`
+            try {
+              const response: unknown = JSON.parse(request.responseText)
+              if (typeof response === 'object' && response !== null && 'message' in response && typeof response.message === 'string') {
+                message = response.message
+              }
+            } catch {
+              // Keep the HTTP status message when the API response is not JSON.
+            }
+            reject(new Error(message))
             return
           }
           try {
             const response: unknown = JSON.parse(request.responseText)
-            if (typeof response !== 'object' || response === null || !('id' in response) || typeof response.id !== 'string') {
+            if (
+              typeof response !== 'object' ||
+              response === null ||
+              !('fileId' in response) ||
+              typeof response.fileId !== 'string' ||
+              response.fileId.length === 0
+            ) {
               reject(new Error('The storage service did not return a video ID.'))
               return
             }
-            resolve(response.id)
+            resolve(response.fileId)
           } catch {
-            reject(new Error('The storage service returned an invalid upload response.'))
+            reject(new Error('The API returned an invalid upload response.'))
           }
         }
         request.send(selectedFile)
@@ -266,7 +263,7 @@ function UploadPage() {
       setUploadLabel('Upload complete')
 
       const started = await fetchJson<JobStartResponse>(
-        `/api/transcription/extract?fileId=${encodeURIComponent(fileId)}`,
+        `/api/transcription/extract?fileId=${encodeURIComponent(fileId)}&fileExtension=${encodeURIComponent(getFileExtension(selectedFile.name))}`,
       )
       const job = started.data
       if (!job?.jobId || !job.statusUrl || !job.downloadUrl) {
@@ -384,7 +381,7 @@ function UploadPage() {
                           onLoadedMetadata={onVideoMetadata}
                           onError={() => {
                             setMetadataChecked(true)
-                            setErrorMessage('This video could not be opened. Try a supported format.')
+                            setErrorMessage('This video could not be opened. Choose a valid MP4 or MKV file.')
                           }}
                         />
                       )}
@@ -414,7 +411,7 @@ function UploadPage() {
                 <div className="upload-card-footer">
                   <div className="format-list">
                     <span className="footer-label">SUPPORTED</span>
-                    <span>MP4</span><span>MOV</span><span>M4V</span><span>MKV</span><span>WEBM</span>
+                    <span>MP4</span><span>MKV</span>
                   </div>
                   <span className="duration-limit"><Icon name="clock" size={14} /> Up to 30 min</span>
                 </div>

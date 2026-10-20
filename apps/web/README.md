@@ -12,6 +12,10 @@ the frontend's exact origin in its CORS configuration, for example
 `https://vidsub.example.com`. Separate multiple origins with commas. Origins
 must not include a path or trailing slash.
 
-The app uses the API for upload URL creation and transcription-job status and
-download routes. The video bytes are uploaded directly to the resumable URL
-returned by Google Drive.
+The app streams video uploads through the API, which forwards them to Google
+Drive and returns the resulting file ID. This avoids browser CORS restrictions
+on Google's resumable-upload response. The API also handles transcription-job
+status and download routes.
+
+MP4 and MKV input videos are accepted. MKV files are processed in their original
+container format and the subtitled result is still packaged as MP4.

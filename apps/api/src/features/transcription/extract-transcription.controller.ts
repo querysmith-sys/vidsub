@@ -52,7 +52,7 @@ const scheduleCleanup = (job: TranscriptionJob) => {
     job.cleanupTimer.unref();
 }
 
-const processTranscriptionJob = async (job: TranscriptionJob, fileId: string) => {
+const processTranscriptionJob = async (job: TranscriptionJob, fileId: string, fileExtension: ".mp4" | ".mkv") => {
     try {
         const fileStream = await getFileStream(fileId);
         if (!fileStream) {
@@ -63,7 +63,7 @@ const processTranscriptionJob = async (job: TranscriptionJob, fileId: string) =>
         await mkdir(tempRoot, { recursive: true });
         job.workingDir = await mkdtemp(path.join(tempRoot, "request-"));
 
-        const videoPath = path.join(job.workingDir, "tmp_video.mp4");
+        const videoPath = path.join(job.workingDir, `tmp_video${fileExtension}`);
         updateJob(job, "processing");
         await pipeline(fileStream, createWriteStream(videoPath));
 
@@ -97,8 +97,12 @@ const processTranscriptionJob = async (job: TranscriptionJob, fileId: string) =>
 
 export const extractTranscriptionFromVideo = (req: Request, res: Response) => {
     const fileId = req.query.fileId;
+    const requestedExtension = req.query.fileExtension ?? ".mp4";
     if (typeof fileId !== "string" || !fileId.trim()) {
         return res.status(400).json({ error: true, message: "fileId is required." });
+    }
+    if (requestedExtension !== ".mp4" && requestedExtension !== ".mkv") {
+        return res.status(400).json({ error: true, message: "Only MP4 and MKV video files are supported." });
     }
 
     const id = randomUUID();
@@ -111,7 +115,7 @@ export const extractTranscriptionFromVideo = (req: Request, res: Response) => {
     };
     jobs.set(id, job);
 
-    void processTranscriptionJob(job, fileId);
+    void processTranscriptionJob(job, fileId, requestedExtension);
 
     return res.status(202).json({
         success: true,

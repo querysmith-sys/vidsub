@@ -15,6 +15,7 @@ const SUBTITLE_WORD_GAP_MS = 400;
 const MAX_SUBTITLE_CUE_DURATION_MS = 6000;
 const MAX_SUBTITLE_CUE_LENGTH = 84;
 const MAX_SUBTITLE_LINE_LENGTH = 42;
+const TRANSLATION_BATCH_SIZE = 50;
 const SENTENCE_END_PATTERN = /[.!?。？！][\s"'’”)\]）】」』〕〉》]*$/u;
 
 if (ffmpegPath) {
@@ -123,15 +124,15 @@ export const getVideoStartTimeMs = async (videoPath: string): Promise<number> =>
             }
 
             const startTimeSeconds = metadata.format.start_time;
-            if (startTimeSeconds === undefined) {
-                resolve(0);
+            if (typeof startTimeSeconds === "number" && Number.isFinite(startTimeSeconds)) {
+                resolve(startTimeSeconds * 1000);
                 return;
             }
-            if (!Number.isFinite(startTimeSeconds)) {
-                reject(new Error(`Video "${videoPath}" has an invalid format start time.`));
-                return;
-            }
-            resolve(startTimeSeconds * 1000);
+
+            const streamStartTimes = metadata.streams
+                .map((stream) => stream.start_time)
+                .filter((time): time is number => typeof time === "number" && Number.isFinite(time));
+            resolve(streamStartTimes.length > 0 ? Math.min(...streamStartTimes) * 1000 : 0);
         });
     });
 }
@@ -312,48 +313,55 @@ const translateSubtitleCues = async (cues: SubtitleCue[]): Promise<string[]> => 
     if (cues.length === 0) {
         throw new Error("No valid timed subtitle cues were created from the transcript.");
     }
-    const numberedLines = cues
-        .map((cue, index) => `${index + 1}. ${cue.text.replace(/[\r\n]+/gu, " ")}`)
-        .join("\n");
-    const prompt = `Translate each numbered subtitle line into natural English.
+    const translatedTexts: string[] = [];
+    for (let offset = 0; offset < cues.length; offset += TRANSLATION_BATCH_SIZE) {
+        const batch = cues.slice(offset, offset + TRANSLATION_BATCH_SIZE);
+        const firstCueNumber = offset + 1;
+        const lastCueNumber = offset + batch.length;
+        const numberedLines = batch
+            .map((cue, index) => `${firstCueNumber + index}. ${cue.text.replace(/[\r\n]+/gu, " ")}`)
+            .join("\n");
+        const prompt = `Translate each numbered subtitle line into natural English.
 Keep the same numbering and the same number of lines.
 Translate only the text after each number. Do not merge, split, omit, or reorder lines.
 Preserve the meaning and punctuation. Return only numbered lines, one per input line.
 
 ${numberedLines}`;
-    const interaction = await ai.interactions.create({
-        model: "gemini-3.7-flash",
-        input: prompt
-    });
-    const output = interaction.output_text?.trim();
-    if (!output) {
-        throw new Error("Translation model returned no subtitle translations.");
-    }
+        const interaction = await ai.interactions.create({
+            model: "gemini-3.7-flash",
+            input: prompt
+        });
+        const output = interaction.output_text?.trim();
+        if (!output) {
+            throw new Error(`Translation model returned no translations for subtitle cues ${firstCueNumber}-${lastCueNumber}.`);
+        }
 
-    const translations = new Map<number, string>();
-    let currentNumber: number | undefined;
-    for (const line of output
-        .replace(/^```(?:text|txt)?\s*|\s*```$/g, "")
-        .split(/\r?\n/u)) {
-        const match = line.match(/^\s*(\d+)[.)\t:]\s*(.*)$/u);
-        if (match) {
-            currentNumber = Number(match[1]);
-            if (currentNumber < 1 || currentNumber > cues.length || translations.has(currentNumber)) {
-                throw new Error(`Translation model returned invalid or duplicate cue number ${currentNumber}.`);
+        const translations = new Map<number, string>();
+        let currentNumber: number | undefined;
+        for (const line of output
+            .replace(/^```(?:text|txt)?\s*|\s*```$/g, "")
+            .split(/\r?\n/u)) {
+            const match = line.match(/^\s*(\d+)[.)\t:]\s*(.*)$/u);
+            if (match) {
+                currentNumber = Number(match[1]);
+                if (currentNumber < firstCueNumber || currentNumber > lastCueNumber || translations.has(currentNumber)) {
+                    throw new Error(`Translation model returned invalid or duplicate cue number ${currentNumber} for batch ${firstCueNumber}-${lastCueNumber}.`);
+                }
+                translations.set(currentNumber, match[2].trim());
+            } else if (line.trim() && currentNumber !== undefined) {
+                translations.set(currentNumber, `${translations.get(currentNumber)} ${line.trim()}`.trim());
             }
-            translations.set(currentNumber, match[2].trim());
-        } else if (line.trim() && currentNumber !== undefined) {
-            translations.set(currentNumber, `${translations.get(currentNumber)} ${line.trim()}`.trim());
+        }
+
+        for (let cueNumber = firstCueNumber; cueNumber <= lastCueNumber; cueNumber += 1) {
+            const translated = translations.get(cueNumber);
+            if (!translated) {
+                throw new Error(`Translation model omitted subtitle cue ${cueNumber} in batch ${firstCueNumber}-${lastCueNumber}.`);
+            }
+            translatedTexts.push(translated);
         }
     }
-
-    return cues.map((_, index) => {
-        const translated = translations.get(index + 1);
-        if (!translated) {
-            throw new Error(`Translation model omitted subtitle cue ${index + 1}.`);
-        }
-        return translated;
-    });
+    return translatedTexts;
 }
 const formatSrtTimestamp = (milliseconds: number) => {
     if (!Number.isFinite(milliseconds) || milliseconds < 0) {

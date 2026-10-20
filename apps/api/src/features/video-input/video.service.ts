@@ -1,8 +1,8 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import { google } from 'googleapis';
-import path from 'path';
 import axios from 'axios';
+import type { Readable } from 'node:stream';
 
 const folderID = process.env.FOLDER_ID;
 const YOUR_CLIENT_ID = process.env.YOUR_CLIENT_ID;
@@ -23,13 +23,27 @@ oauth2Client.setCredentials({
     refresh_token: YOUR_REFRESH_TOKEN
 });
 
-export async function getResumeableUploadURL(file: { mimeType: string, fileSize: string, fileName: string }): Promise<string | undefined> {
+function getDriveError(error: unknown, operation: string): Error {
+    if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const code = error.code;
+        const details = [status ? `HTTP ${status}` : undefined, code, error.message]
+            .filter(Boolean)
+            .join(', ');
+        return new Error(`Google Drive ${operation} failed: ${details}`, { cause: error });
+    }
+    return error instanceof Error ? error : new Error(String(error));
+}
+
+export async function getResumeableUploadURL(file: { mimeType: string, fileSize: string, fileName: string }): Promise<string> {
     if (!folderID) {
-        console.log("folderid is undefined: ", folderID);
-        process.exit(0);
+        throw new Error("Google Drive folder is not configured.");
     }
     try {
         const { token: accessToken } = await oauth2Client.getAccessToken();
+        if (!accessToken) {
+            throw new Error("Unable to obtain Google Drive access token.");
+        }
         const metadata: { name: string, mimeType: string, parents: string[] } = {
             name: file.fileName,
             mimeType: file.mimeType,
@@ -43,16 +57,36 @@ export async function getResumeableUploadURL(file: { mimeType: string, fileSize:
                 'X-Upload-Content-Length': file.fileSize,
             }
         })
-        return res.headers.location;
-    } catch (error: any) {
-        console.error("ERROR:");
+        const uploadUrl: unknown = res.headers.location;
+        if (typeof uploadUrl !== 'string' || uploadUrl.length === 0) {
+            throw new Error("Google Drive did not return a resumable upload URL.");
+        }
+        return uploadUrl;
+    } catch (error: unknown) {
+        throw getDriveError(error, 'resumable upload session creation');
+    }
+}
 
-        console.error({
-            name: error.name,
-            message: error.message,
-            responseStatus: error.response?.status,
-            responseData: error.response?.data,
+export async function uploadVideoToDrive(
+    file: { mimeType: string, fileSize: string, fileName: string },
+    stream: Readable,
+): Promise<string> {
+    const uploadUrl = await getResumeableUploadURL(file);
+
+    try {
+        const response = await axios.put<{ id?: unknown }>(uploadUrl, stream, {
+            headers: {
+                'Content-Type': file.mimeType,
+                'Content-Length': file.fileSize,
+            },
+            maxBodyLength: Infinity,
+            maxContentLength: Infinity,
         });
-        return undefined;
+        if (typeof response.data.id !== 'string' || response.data.id.length === 0) {
+            throw new Error('Google Drive did not return a video file ID.');
+        }
+        return response.data.id;
+    } catch (error: unknown) {
+        throw getDriveError(error, 'video upload');
     }
 }
