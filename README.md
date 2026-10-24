@@ -208,3 +208,4 @@ pnpm check-types  # Check TypeScript types
    persistent. Reloading the page loses the current job and its progress, so
    users may need to start the upload and processing again. Persist jobs and
    let users return to check progress and download the finished video.
+4. **You can add a option to download .srt file for the same video**
