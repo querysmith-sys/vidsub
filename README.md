@@ -209,3 +209,4 @@ pnpm check-types  # Check TypeScript types
    users may need to start the upload and processing again. Persist jobs and
    let users return to check progress and download the finished video.
 4. **You can add a option to download .srt file for the same video**
+5. **Add multiple target langugages to translate:** Currently any foreign languages is translated to english by default, because i needed it that way (personal choice), you can allow it translate to any other language instead of just english.
