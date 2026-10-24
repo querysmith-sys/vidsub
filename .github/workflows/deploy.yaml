@@ -1,0 +1,39 @@
+name: CI/CD PIPELINE
+
+on:
+  push:
+    branches:
+      - main  # Change this if your default branch is 'master'
+
+jobs:
+  ci-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify Dockerfile exists
+        run: |
+          if [ ! -f Dockerfile ]; then
+            echo "Error: Dockerfile not found at root!"
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+  deploy:
+    needs: ci-checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render Deployment
+        run: |
+          curl -f -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"

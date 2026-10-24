@@ -1,176 +1,55 @@
-# Turborepo starter
+# VidSub
 
-## Run the application with Docker
+VidSub is a monorepo for the video transcription workflow app. It includes an Express API and a Vite React frontend.
 
-Build both images and start the frontend and API:
+## Stack
+
+- API: Express + TypeScript
+- Web: React + Vite + TypeScript
+- Workspace tooling: pnpm + Turbo
+
+## Prerequisites
+
+- Node.js 24+
+- pnpm
+- Docker (optional, for running the full stack locally)
+
+## Install
+
+```sh
+corepack enable
+pnpm install
+```
+
+## Run locally
+
+### With Docker
 
 ```sh
 docker compose up --build -d
 ```
 
-Open the frontend at <http://localhost:5173>. The API health check is available
-at <http://localhost:3000/health>. To follow service logs, run
-`docker compose logs -f`; stop the services with `docker compose down`.
+Then open:
 
-The API reads optional credentials from `apps/api/.env` at runtime. Keep
-credentials out of Docker images; the Docker build context excludes environment
-files. The frontend defaults to calling `http://localhost:3000`. To use another
-API origin, set `VITE_API_ORIGIN` when running `docker compose up --build`.
+- Frontend: http://localhost:5173
+- API health: http://localhost:3000/health
 
-This Turborepo starter is maintained by the Turborepo core team.
-
-## Using this example
-
-Run the following command:
+### With pnpm
 
 ```sh
-npx create-turbo@latest
+pnpm dev
 ```
 
-## What's inside?
+## Configuration
 
-This Turborepo includes the following packages/apps:
+- The API reads optional credentials from `apps/api/.env` at runtime.
+- Keep secrets out of Docker images and do not commit `.env` files.
+- The frontend defaults to `http://localhost:3000` as the API origin. Override it with `VITE_API_ORIGIN` if needed.
 
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `@next/eslint-plugin-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+## Useful commands
 
 ```sh
-cd my-turborepo
-turbo build
+pnpm build
+pnpm lint
+pnpm dev
 ```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo build
-pnpm exec turbo build
-pnpm exec turbo build
-```
-
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo build --filter=docs
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
-
-### Develop
-
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
