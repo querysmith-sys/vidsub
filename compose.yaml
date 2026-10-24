@@ -1,0 +1,19 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_ORIGIN: ${VITE_API_ORIGIN:-http://localhost:3000}
+    ports:
+      - "5173:80"
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: ./apps/api/.env
+        required: false

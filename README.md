@@ -1,5 +1,22 @@
 # Turborepo starter
 
+## Run the application with Docker
+
+Build both images and start the frontend and API:
+
+```sh
+docker compose up --build -d
+```
+
+Open the frontend at <http://localhost:5173>. The API health check is available
+at <http://localhost:3000/health>. To follow service logs, run
+`docker compose logs -f`; stop the services with `docker compose down`.
+
+The API reads optional credentials from `apps/api/.env` at runtime. Keep
+credentials out of Docker images; the Docker build context excludes environment
+files. The frontend defaults to calling `http://localhost:3000`. To use another
+API origin, set `VITE_API_ORIGIN` when running `docker compose up --build`.
+
 This Turborepo starter is maintained by the Turborepo core team.
 
 ## Using this example

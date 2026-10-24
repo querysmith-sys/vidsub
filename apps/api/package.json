@@ -26,6 +26,7 @@
     "nodemon": "^3.1.14"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/fluent-ffmpeg": "^2.1.28",
     "@types/node": "^24.0.0",
