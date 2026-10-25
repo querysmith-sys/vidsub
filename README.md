@@ -1,4 +1,5 @@
 # VidSub
+NOTE: SOON BYOK (BRING YOUR OWN KEYS) SUPPORT IN THE WEBSITE WILL COME THEY YOU CAN JUST USE THE WEBSITE!! WITHOUT CONFIGURING IT LOCALLY... SO WAIT!!
 
 VidSub turns speech in a video into timed English subtitles. It has a web app and
 an API. The API stores the uploaded video in your Google Drive, uses AssemblyAI
